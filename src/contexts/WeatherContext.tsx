@@ -1,8 +1,13 @@
-
-import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
-import { toast } from '@/hooks/use-toast';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  useState,
+} from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { User, Session } from "@supabase/supabase-js";
+import { toast } from "@/hooks/use-toast";
 
 interface WeatherData {
   name: string;
@@ -32,7 +37,7 @@ interface WeatherState {
   forecast: ForecastData[];
   isLoading: boolean;
   error: string | null;
-  unit: 'celsius' | 'fahrenheit';
+  unit: "celsius" | "fahrenheit";
 }
 
 interface WeatherContextType {
@@ -45,39 +50,57 @@ interface WeatherContextType {
   signOut: () => Promise<void>;
   addToFavorites: (city: string, country: string) => Promise<void>;
   removeFromFavorites: (city: string) => Promise<void>;
-  favoritesCities: Array<{id: string; city_name: string; country: string}>;
-  searchHistory: Array<{id: string; city_name: string; country: string; temperature: number; weather_condition: string; searched_at: string}>;
+  favoritesCities: Array<{ id: string; city_name: string; country: string }>;
+  searchHistory: Array<{
+    id: string;
+    city_name: string;
+    country: string;
+    temperature: number;
+    weather_condition: string;
+    searched_at: string;
+  }>;
 }
 
 type WeatherAction =
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_WEATHER'; payload: WeatherData }
-  | { type: 'SET_FORECAST'; payload: ForecastData[] }
-  | { type: 'SET_ERROR'; payload: string }
-  | { type: 'TOGGLE_UNIT' }
-  | { type: 'CLEAR_ERROR' };
+  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "SET_WEATHER"; payload: WeatherData }
+  | { type: "SET_FORECAST"; payload: ForecastData[] }
+  | { type: "SET_ERROR"; payload: string }
+  | { type: "TOGGLE_UNIT" }
+  | { type: "CLEAR_ERROR" };
 
 const initialState: WeatherState = {
   currentWeather: null,
   forecast: [],
   isLoading: false,
   error: null,
-  unit: 'celsius',
+  unit: "celsius",
 };
 
-const weatherReducer = (state: WeatherState, action: WeatherAction): WeatherState => {
+const weatherReducer = (
+  state: WeatherState,
+  action: WeatherAction
+): WeatherState => {
   switch (action.type) {
-    case 'SET_LOADING':
+    case "SET_LOADING":
       return { ...state, isLoading: action.payload };
-    case 'SET_WEATHER':
-      return { ...state, currentWeather: action.payload, isLoading: false, error: null };
-    case 'SET_FORECAST':
+    case "SET_WEATHER":
+      return {
+        ...state,
+        currentWeather: action.payload,
+        isLoading: false,
+        error: null,
+      };
+    case "SET_FORECAST":
       return { ...state, forecast: action.payload };
-    case 'SET_ERROR':
+    case "SET_ERROR":
       return { ...state, error: action.payload, isLoading: false };
-    case 'TOGGLE_UNIT':
-      return { ...state, unit: state.unit === 'celsius' ? 'fahrenheit' : 'celsius' };
-    case 'CLEAR_ERROR':
+    case "TOGGLE_UNIT":
+      return {
+        ...state,
+        unit: state.unit === "celsius" ? "fahrenheit" : "celsius",
+      };
+    case "CLEAR_ERROR":
       return { ...state, error: null };
     default:
       return state;
@@ -86,32 +109,54 @@ const weatherReducer = (state: WeatherState, action: WeatherAction): WeatherStat
 
 const WeatherContext = createContext<WeatherContextType | undefined>(undefined);
 
-export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [state, dispatch] = useReducer(weatherReducer, initialState);
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [favoritesCities, setFavoritesCities] = useState<Array<{id: string; city_name: string; country: string}>>([]);
-  const [searchHistory, setSearchHistory] = useState<Array<{id: string; city_name: string; country: string; temperature: number; weather_condition: string; searched_at: string}>>([]);
+  const [favoritesCities, setFavoritesCities] = useState<
+    Array<{ id: string; city_name: string; country: string }>
+  >([]);
+  const [searchHistory, setSearchHistory] = useState<
+    Array<{
+      id: string;
+      city_name: string;
+      country: string;
+      temperature: number;
+      weather_condition: string;
+      searched_at: string;
+    }>
+  >([]);
 
-  const API_KEY = '249436e1b1d48726a7b7a8e2d87abca9';
+  const API_KEY = "249436e1b1d48726a7b7a8e2d87abca9";
+
+  // Local storage functions
+  const saveLastSearchedCity = (city: string) => {
+    localStorage.setItem("lastSearchedCity", city);
+  };
+
+  const getLastSearchedCity = (): string | null => {
+    return localStorage.getItem("lastSearchedCity");
+  };
 
   useEffect(() => {
     // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserData(session.user.id);
-          }, 0);
-        } else {
-          setFavoritesCities([]);
-          setSearchHistory([]);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        setTimeout(() => {
+          fetchUserData(session.user.id);
+        }, 0);
+      } else {
+        setFavoritesCities([]);
+        setSearchHistory([]);
       }
-    );
+    });
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -122,6 +167,13 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     });
 
+    // Load last searched city when app starts
+    const lastSearchedCity = getLastSearchedCity();
+    if (lastSearchedCity) {
+      console.log("Loading last searched city:", lastSearchedCity);
+      fetchWeather(lastSearchedCity);
+    }
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -129,33 +181,35 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       // Fetch favorite cities
       const { data: favorites } = await supabase
-        .from('favorite_cities')
-        .select('id, city_name, country')
-        .eq('user_id', userId);
-      
+        .from("favorite_cities")
+        .select("id, city_name, country")
+        .eq("user_id", userId);
+
       if (favorites) {
         setFavoritesCities(favorites);
       }
 
       // Fetch search history
       const { data: history } = await supabase
-        .from('weather_searches')
-        .select('id, city_name, country, temperature, weather_condition, searched_at')
-        .eq('user_id', userId)
-        .order('searched_at', { ascending: false })
+        .from("weather_searches")
+        .select(
+          "id, city_name, country, temperature, weather_condition, searched_at"
+        )
+        .eq("user_id", userId)
+        .order("searched_at", { ascending: false })
         .limit(10);
-      
+
       if (history) {
         setSearchHistory(history);
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error("Error fetching user data:", error);
     }
   };
 
   const fetchWeather = async (city: string) => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    dispatch({ type: 'CLEAR_ERROR' });
+    dispatch({ type: "SET_LOADING", payload: true });
+    dispatch({ type: "CLEAR_ERROR" });
 
     try {
       // Fetch current weather
@@ -164,7 +218,7 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
       );
 
       if (!currentResponse.ok) {
-        throw new Error('City not found');
+        throw new Error("City not found");
       }
 
       const currentData = await currentResponse.json();
@@ -182,7 +236,11 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
         visibility: Math.round(currentData.visibility / 1000), // Convert to km
       };
 
-      dispatch({ type: 'SET_WEATHER', payload: weatherData });
+      dispatch({ type: "SET_WEATHER", payload: weatherData });
+
+      // Save to local storage
+      saveLastSearchedCity(city);
+      console.log("Saved to localStorage:", city);
 
       // Fetch 5-day forecast
       const forecastResponse = await fetch(
@@ -191,65 +249,69 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (forecastResponse.ok) {
         const forecastData = await forecastResponse.json();
-        
+
         // Process forecast data - get daily min/max temperatures
         const dailyForecasts: ForecastData[] = [];
-        const dailyData: { [key: string]: { temps: number[], descriptions: string[], icons: string[] } } = {};
+        const dailyData: {
+          [key: string]: {
+            temps: number[];
+            descriptions: string[];
+            icons: string[];
+          };
+        } = {};
 
         forecastData.list.forEach((item: any) => {
           const date = new Date(item.dt * 1000);
           const dateString = date.toDateString();
-          
+
           if (!dailyData[dateString]) {
             dailyData[dateString] = { temps: [], descriptions: [], icons: [] };
           }
-          
+
           dailyData[dateString].temps.push(item.main.temp);
           dailyData[dateString].descriptions.push(item.weather[0].description);
           dailyData[dateString].icons.push(item.weather[0].icon);
         });
 
         // Convert to daily forecasts with min/max temps
-        Object.keys(dailyData).slice(0, 5).forEach(dateString => {
-          const data = dailyData[dateString];
-          const maxTemp = Math.round(Math.max(...data.temps));
-          const minTemp = Math.round(Math.min(...data.temps));
-          
-          dailyForecasts.push({
-            date: dateString,
-            temperature: {
-              max: maxTemp,
-              min: minTemp
-            },
-            description: data.descriptions[0], // Use first description of the day
-            icon: data.icons[0] // Use first icon of the day
-          });
-        });
+        Object.keys(dailyData)
+          .slice(0, 5)
+          .forEach((dateString) => {
+            const data = dailyData[dateString];
+            const maxTemp = Math.round(Math.max(...data.temps));
+            const minTemp = Math.round(Math.min(...data.temps));
 
-        dispatch({ type: 'SET_FORECAST', payload: dailyForecasts });
+            dailyForecasts.push({
+              date: dateString,
+              temperature: {
+                max: maxTemp,
+                min: minTemp,
+              },
+              description: data.descriptions[0], // Use first description of the day
+              icon: data.icons[0], // Use first icon of the day
+            });
+          });
+
+        dispatch({ type: "SET_FORECAST", payload: dailyForecasts });
       }
 
       // Save search to database if user is logged in
       if (user) {
-        await supabase
-          .from('weather_searches')
-          .insert({
-            user_id: user.id,
-            city_name: weatherData.name,
-            country: weatherData.country,
-            temperature: weatherData.temperature,
-            weather_condition: weatherData.description
-          });
-        
+        await supabase.from("weather_searches").insert({
+          user_id: user.id,
+          city_name: weatherData.name,
+          country: weatherData.country,
+          temperature: weatherData.temperature,
+          weather_condition: weatherData.description,
+        });
+
         // Refresh search history
         fetchUserData(user.id);
       }
-
-   
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch weather data';
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to fetch weather data";
+      dispatch({ type: "SET_ERROR", payload: errorMessage });
       toast({
         title: "Error",
         description: errorMessage,
@@ -259,8 +321,8 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const convertTemperature = (temp: number): number => {
-    if (state.unit === 'fahrenheit') {
-      return Math.round((temp * 9/5) + 32);
+    if (state.unit === "fahrenheit") {
+      return Math.round((temp * 9) / 5 + 32);
     }
     return temp;
   };
@@ -284,13 +346,11 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
-      const { error } = await supabase
-        .from('favorite_cities')
-        .insert({
-          user_id: user.id,
-          city_name: city,
-          country: country
-        });
+      const { error } = await supabase.from("favorite_cities").insert({
+        user_id: user.id,
+        city_name: city,
+        country: country,
+      });
 
       if (error) throw error;
 
@@ -302,7 +362,7 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Refresh favorites
       fetchUserData(user.id);
     } catch (error: any) {
-      if (error.code === '23505') {
+      if (error.code === "23505") {
         toast({
           title: "Already in favorites",
           description: `${city} is already in your favorites`,
@@ -323,10 +383,10 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     try {
       const { error } = await supabase
-        .from('favorite_cities')
+        .from("favorite_cities")
         .delete()
-        .eq('user_id', user.id)
-        .eq('city_name', city);
+        .eq("user_id", user.id)
+        .eq("city_name", city);
 
       if (error) throw error;
 
@@ -360,13 +420,15 @@ export const WeatherProvider: React.FC<{ children: React.ReactNode }> = ({ child
     searchHistory,
   };
 
-  return <WeatherContext.Provider value={value}>{children}</WeatherContext.Provider>;
+  return (
+    <WeatherContext.Provider value={value}>{children}</WeatherContext.Provider>
+  );
 };
 
 export const useWeather = () => {
   const context = useContext(WeatherContext);
   if (context === undefined) {
-    throw new Error('useWeather must be used within a WeatherProvider');
+    throw new Error("useWeather must be used within a WeatherProvider");
   }
   return context;
 };
